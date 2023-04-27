@@ -1,4 +1,10 @@
-import { useCallback, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import ReactFlow, {
   ConnectionLineType,
   NodeOrigin,
@@ -9,15 +15,21 @@ import ReactFlow, {
   useStoreApi,
   Controls,
   Panel,
-} from 'reactflow';
-import shallow from 'zustand/shallow';
+  Edge,
+} from "reactflow";
+import shallow from "zustand/shallow";
+import { useSyncedStore } from "@syncedstore/react";
 
-import useStore, { RFState } from './store';
-import MindMapNode from './MindMapNode';
-import MindMapEdge from './MindMapEdge';
+import { RFState } from "./store";
+import { yStore } from "./y";
+
+import MindMapNode from "./MindMapNode";
+import MindMapEdge from "./MindMapEdge";
 
 // we need to import the React Flow styles to make it work
-import 'reactflow/dist/style.css';
+import "reactflow/dist/style.css";
+import { ReactFlowYStore, useYArray } from "./y";
+import { useLazy } from "./utils/useLazy";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -37,15 +49,19 @@ const edgeTypes = {
 
 const nodeOrigin: NodeOrigin = [0.5, 0.5];
 
-const connectionLineStyle = { stroke: '#F6AD55', strokeWidth: 3 };
-const defaultEdgeOptions = { style: connectionLineStyle, type: 'mindmap' };
+const connectionLineStyle = { stroke: "#F6AD55", strokeWidth: 3 };
+const defaultEdgeOptions = { style: connectionLineStyle, type: "mindmap" };
 
 function Flow() {
   const store = useStoreApi();
-  const { nodes, edges, onNodesChange, onEdgesChange, addChildNode } = useStore(
-    selector,
-    shallow
-  );
+  // const { nodes, edges, onNodesChange, onEdgesChange, addChildNode } = useStore(
+  //   selector,
+  //   shallow
+  // );
+  // const state = useSyncedStore(yStore);
+  const nodes = useYArray(yStore.nodes);
+  const edges = useYArray(yStore.edges);
+
   const { project } = useReactFlow();
   const connectingNodeId = useRef<string | null>(null);
 
@@ -87,18 +103,18 @@ function Flow() {
     (event) => {
       const { nodeInternals } = store.getState();
       const targetIsPane = (event.target as Element).classList.contains(
-        'react-flow__pane'
+        "react-flow__pane"
       );
-      const node = (event.target as Element).closest('.react-flow__node');
+      const node = (event.target as Element).closest(".react-flow__node");
 
       if (node) {
-        node.querySelector('input')?.focus({ preventScroll: true });
+        node.querySelector("input")?.focus({ preventScroll: true });
       } else if (targetIsPane && connectingNodeId.current) {
         const parentNode = nodeInternals.get(connectingNodeId.current);
         const childNodePosition = getChildNodePosition(event, parentNode);
 
         if (parentNode && childNodePosition) {
-          addChildNode(parentNode, childNodePosition);
+          yStore.addChildNode(parentNode, childNodePosition);
         }
       }
     },
@@ -109,8 +125,8 @@ function Flow() {
     <ReactFlow
       nodes={nodes}
       edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
+      onNodesChange={(e) => yStore.onNodesChange(e)}
+      onEdgesChange={(e) => yStore.onEdgesChange(e)}
       onConnectStart={onConnectStart}
       onConnectEnd={onConnectEnd}
       nodeTypes={nodeTypes}
