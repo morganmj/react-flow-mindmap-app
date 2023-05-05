@@ -39,7 +39,7 @@ export class ReactFlowYStore {
     const newNode = {
       id: nanoid(),
       type: "mindmap",
-      data: { label: "New Node" },
+      data: { label: 'label' },
       position,
       dragHandle: ".dragHandle",
       parentNode: parentNode.id,
@@ -82,7 +82,7 @@ export const yStore = new ReactFlowYStore([
   {
     id: "root",
     type: "mindmap",
-    data: { label: "React Flow Mind Map" },
+    data: { label: new Y.Text("React Flow Mind Map") },
     position: { x: 0, y: 0 },
     dragHandle: ".dragHandle",
   },
@@ -97,26 +97,28 @@ export function useYArray<T>(yArray: Y.Array<T>, initialValue?: T[]): T[] {
       //   // skip empty event
       //   return;
       // }
-      let retain = 0;
-      event.changes.delta.forEach((change) => {
-        if (change.retain) {
-          retain += change.retain;
-        }
-        if (change.delete) {
-          arr.splice(retain, change.delete);
-        }
-        if (change.insert) {
-          console.log('change.insert',change.insert)
-          if (Array.isArray(change.insert)) {
-            const value = change.insert;
-            arr.splice(retain, 0, ...value);
-          } else {
-            arr.splice(retain, 0, change.insert as T);
-          }
-          retain += change.insert.length;
-        }
-      });
-      setArr([...arr]);
+      // let retain = 0;
+      // event.changes.delta.forEach((change) => {
+      //   if (change.retain) {
+      //     retain += change.retain;
+      //   }
+      //   if (change.delete) {
+      //     arr.splice(retain, change.delete);
+      //   }
+      //   if (change.insert) {
+      //     console.log('change.insert',change.insert)
+      //     if (Array.isArray(change.insert)) {
+      //       const value = change.insert;
+      //       arr.splice(retain, 0, ...value);
+      //     } else {
+      //       arr.splice(retain, 0, change.insert as T);
+      //     }
+      //     retain += change.insert.length;
+      //   }
+      // });
+      // setArr([...arr]);
+
+      setArr(yArray.toArray())
     }
      yArray.observe(f);
 
@@ -129,7 +131,7 @@ export function useYArray<T>(yArray: Y.Array<T>, initialValue?: T[]): T[] {
 // const doc = getYjsDoc(yStore);
 export const wsProvider = new WebsocketProvider(
   "wss://demos.yjs.dev/",
-  "999",
+  "7799",
   yStore.doc
 );
 

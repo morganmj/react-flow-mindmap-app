@@ -108,7 +108,8 @@ function Flow() {
       const node = (event.target as Element).closest(".react-flow__node");
 
       if (node) {
-        node.querySelector("input")?.focus({ preventScroll: true });
+
+        // node.querySelector("input")?.focus({ preventScroll: true });
       } else if (targetIsPane && connectingNodeId.current) {
         const parentNode = nodeInternals.get(connectingNodeId.current);
         const childNodePosition = getChildNodePosition(event, parentNode);
@@ -136,6 +137,10 @@ function Flow() {
       connectionLineStyle={connectionLineStyle}
       connectionLineType={ConnectionLineType.Straight}
       fitView
+      elementsSelectable={false}
+      // onNodeClick={()=>{
+
+      // }}
     >
       <Controls showInteractive={false} />
       <Panel position="top-left" className="header">
