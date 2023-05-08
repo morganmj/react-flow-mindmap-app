@@ -1,11 +1,5 @@
 import * as Y from "yjs";
-import {
-  Edge,
-  EdgeChange,
-  Node,
-  NodeChange,
-  XYPosition,
-} from "reactflow";
+import { Edge, EdgeChange, Node, NodeChange, XYPosition } from "reactflow";
 import { NodeData } from "./MindMapNode";
 import { applyChangesWithSyncedStore } from "./utils/change";
 import { nanoid } from "nanoid";
@@ -14,19 +8,28 @@ import { WebsocketProvider } from "y-websocket";
 
 export class ReactFlowYStore {
   doc!: Y.Doc;
-  nodes!: Y.Array<Node<NodeData>>;
-  edges!: Y.Array<Edge>;
+  nodes!: Y.Array<Y.Map<unknown>>;
+  edges!: Y.Array<Y.Map<unknown>>;
   instance?: ReactFlowYStore;
-  constructor(initalNodes: Node<NodeData>[]) {
+  constructor(initialNodes?: Y.Map<unknown>) {
     if (this.instance) {
-      return this.instance
+      return this.instance;
     }
     this.instance = this;
 
     this.doc = new Y.Doc();
     this.nodes = this.doc.getArray("nodes");
     this.edges = this.doc.getArray("edges");
-    this.nodes.push(initalNodes);
+    const yMap = new Y.Map([
+      ["id", "root"],
+      ["type", "mindmap"],
+      ["position", { x: 0, y: 0 }],
+      ["dragHandle", ".dragHandle"],
+    ]);
+    const dataMap = new Y.Map([["textId", "root"]]);
+    dataMap.set("text", new Y.Text("root text"));
+    yMap.set("data", dataMap);
+    this.nodes.push([yMap]);
   }
 
   onNodesChange = (changes: NodeChange[]) => {
@@ -36,25 +39,30 @@ export class ReactFlowYStore {
     applyChangesWithSyncedStore(changes, this.edges!, this.doc!);
   };
   addChildNode = (parentNode: Node, position: XYPosition) => {
-    const newNode = {
-      id: nanoid(),
-      type: "mindmap",
-      data: { label: 'label' },
-      position,
-      dragHandle: ".dragHandle",
-      parentNode: parentNode.id,
-    };
+    const nodeId = nanoid();
+    console.log("nodeId", nodeId);
 
-    const newEdge = {
-      id: nanoid(),
-      source: parentNode.id,
-      target: newNode.id,
-    };
+    const newNodeMap = new Y.Map<unknown>([
+      ["id", nodeId],
+      ["type", "mindmap"],
+      ["position", position],
+      ["dragHandle", ".dragHandle"],
+      ["parentNode", parentNode.id],
+    ]);
+    const dataMap = new Y.Map([["textId", nodeId]]);
+    dataMap.set("text", new Y.Text("sub"));
+    newNodeMap.set("data", dataMap);
+
+    const newEdgeMap = new Y.Map<unknown>([
+      ["id", nanoid()],
+      ["source", parentNode.id],
+      ["target", nodeId],
+    ]);
 
     const _this = this;
     this.doc.transact(() => {
-      _this.nodes.push([newNode]);
-      _this.edges.push([newEdge]);
+      _this.nodes.push([newNodeMap]);
+      _this.edges.push([newEdgeMap]);
     });
   };
 
@@ -62,76 +70,98 @@ export class ReactFlowYStore {
     let deletedIndex = -1;
     let updateItem: any;
     this.nodes.forEach((node, index) => {
-      if (node.id === nodeId) {
-        updateItem = { ...node, data:{...node.data,label} };
-        deletedIndex = index;
+      if (node.get("id") === nodeId) {
+        // updateItem = {
+        //   ...node.toJSON(),
+        //   data: { ...(node.get("data") as Object), label },
+        // };
+        // deletedIndex = index;
+        node.set("data", node.get("data"));
       }
     });
 
-    if (deletedIndex >= 0) {
-      console.log('updateNodeLabel',deletedIndex,updateItem)
-      this.doc.transact(() => {
-        this.nodes.delete(deletedIndex, 1);
-        this.nodes.push([updateItem]);
-      });
-    }
+    // if (deletedIndex >= 0) {
+    //   this.doc.transact(() => {
+    //     this.nodes.delete(deletedIndex, 1);
+    //     const updated = Object.keys(updateItem).map((key) => [
+    //       key,
+    //       updateItem[key],
+    //     ]);
+    //     this.nodes.push(new Y.Map(updated));
+    //   });
+    // }
   };
 }
 
-export const yStore = new ReactFlowYStore([
-  {
-    id: "root",
-    type: "mindmap",
-    data: { label: new Y.Text("React Flow Mind Map") },
-    position: { x: 0, y: 0 },
-    dragHandle: ".dragHandle",
-  },
-]);
+export const yStore = new ReactFlowYStore();
 
-export function useYArray<T>(yArray: Y.Array<T>, initialValue?: T[]): T[] {
-  const [arr, setArr] = useState(initialValue || yArray.toArray());
-
+export function useYArray<T>(
+  yArray: Y.Array<Y.Map<unknown>>,
+  initialValue?: T[]
+): T[] {
+  const [arr, setArr] = useState(initialValue || yArray.toJSON());
   useEffect(() => {
-    const f=(event: Y.YArrayEvent<T>) => {
-      // if (event.changes.keys.size === 0) {
-      //   // skip empty event
-      //   return;
-      // }
-      // let retain = 0;
-      // event.changes.delta.forEach((change) => {
-      //   if (change.retain) {
-      //     retain += change.retain;
+    const f = (events: Y.YEvent<any>[]) => {
+      // events.forEach((event) => {
+      //   if (event instanceof Y.YArrayEvent) {
+      //     let retain = 0;
+      //     event.changes.delta.forEach((change) => {
+      //       if (change.retain) {
+      //         retain += change.retain;
+      //       }
+      //       if (change.delete) {
+      //         arr.splice(retain, change.delete);
+      //       }
+      //       if (change.insert) {
+      //         if (Array.isArray(change.insert)) {
+      //           const value = change.insert.map((r) => r.toJSON());
+      //           arr.splice(retain, 0, ...value);
+      //         } else {
+      //           arr.splice(retain, 0, change.insert as T);
+      //         }
+      //         retain += change.insert.length;
+      //       }
+      //     });
       //   }
-      //   if (change.delete) {
-      //     arr.splice(retain, change.delete);
+      //   if (event instanceof Y.YMapEvent) {
+      //     let deletedIndex = 0;
+      //     arr.forEach((item, index) => {
+      //       if ((item as any).id === event.target.get("id")) {
+      //         deletedIndex = index;
+      //       }
+      //     });
+
+      //     arr.splice(deletedIndex, 1);
+      //     arr.push(event.target.toJSON() as any);
       //   }
-      //   if (change.insert) {
-      //     console.log('change.insert',change.insert)
-      //     if (Array.isArray(change.insert)) {
-      //       const value = change.insert;
-      //       arr.splice(retain, 0, ...value);
-      //     } else {
-      //       arr.splice(retain, 0, change.insert as T);
-      //     }
-      //     retain += change.insert.length;
+      //   if (event instanceof Y.YTextEvent) {
+      //     arr.forEach((item, index) => {
+      //       if (
+      //         (item as any).id ===
+      //         (event.target.parent as Y.Map<any>)?.get("textId")
+      //       ) {
+      //         item.data = { text: event.target.toJSON(), textId: item.id };
+      //       }
+      //     });
       //   }
       // });
+
       // setArr([...arr]);
+      setArr([...yArray.toJSON()]);
+    };
 
-      setArr(yArray.toArray())
-    }
-     yArray.observe(f);
+    yArray.observeDeep(f);
 
-    return () => yArray.unobserve(f);
-  }, [yArray]);
+    return () => yArray.unobserveDeep(f);
+  }, []);
 
   return arr;
 }
+export const yUndoManager = new Y.UndoManager([yStore.edges, yStore.nodes]);
 
-// const doc = getYjsDoc(yStore);
 export const wsProvider = new WebsocketProvider(
   "wss://demos.yjs.dev/",
-  "7799",
+  "sdv888",
   yStore.doc
 );
 

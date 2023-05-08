@@ -17,11 +17,8 @@ import ReactFlow, {
   Panel,
   Edge,
 } from "reactflow";
-import shallow from "zustand/shallow";
-import { useSyncedStore } from "@syncedstore/react";
 
-import { RFState } from "./store";
-import { yStore } from "./y";
+import { wsProvider, yStore, yUndoManager } from "./y";
 
 import MindMapNode from "./MindMapNode";
 import MindMapEdge from "./MindMapEdge";
@@ -30,15 +27,12 @@ import MindMapEdge from "./MindMapEdge";
 import "reactflow/dist/style.css";
 import { ReactFlowYStore, useYArray } from "./y";
 import { useLazy } from "./utils/useLazy";
-
-const selector = (state: RFState) => ({
-  nodes: state.nodes,
-  edges: state.edges,
-  onNodesChange: state.onNodesChange,
-  onEdgesChange: state.onEdgesChange,
-  addChildNode: state.addChildNode,
-});
-
+import { useRFContext } from "../context";
+import { Button, Drawer } from "antd";
+import { QuillBinding } from "y-quill";
+import Quill from "quill";
+import QuillCursors from "quill-cursors";
+import * as Y from "yjs";
 const nodeTypes = {
   mindmap: MindMapNode,
 };
@@ -52,13 +46,48 @@ const nodeOrigin: NodeOrigin = [0.5, 0.5];
 const connectionLineStyle = { stroke: "#F6AD55", strokeWidth: 3 };
 const defaultEdgeOptions = { style: connectionLineStyle, type: "mindmap" };
 
-function Flow() {
+let quill: any = null;
+let binding: any = null;
+Quill.register("modules/cursors", QuillCursors);
+
+const bindEditor = (ytext: Y.Text) => {
+  if (binding) {
+    // We can reuse the existing editor. But we need to remove all event handlers
+    // that we registered for collaborative editing before binding to a new editor binding
+    binding.destroy();
+  }
+  if (quill === null) {
+    // This is the first time a user opens a document.
+    // The editor has not been initialized yet.
+    // Create an editor instance.
+    quill = new Quill(document.querySelector("#quill-editor")!, {
+      modules: {
+        cursors: true,
+        toolbar: [
+          // adding some basic Quill content features
+          [{ header: [1, 2, false] }],
+          ["bold", "italic", "underline"],
+          ["image", "code-block"],
+        ],
+        history: {
+          // Local undo shouldn't undo changes
+          // from remote users
+          userOnly: true,
+        },
+      },
+      placeholder: "Start collaborating...",
+      theme: "snow", // 'bubble' is also great
+    });
+  }
+  // "Bind" the quill editor to a Yjs text type.
+  // The QuillBinding uses the awareness instance to propagate your cursor location.
+  // binding = new QuillBinding(ytext, quill, wsProvider.awareness);
+  binding = new QuillBinding(ytext, quill, wsProvider.awareness);
+};
+
+function Flow(): JSX.Element {
   const store = useStoreApi();
-  // const { nodes, edges, onNodesChange, onEdgesChange, addChildNode } = useStore(
-  //   selector,
-  //   shallow
-  // );
-  // const state = useSyncedStore(yStore);
+  const { setEditorVisible, editorVisible, editorYText } = useRFContext();
   const nodes = useYArray(yStore.nodes);
   const edges = useYArray(yStore.edges);
 
@@ -108,7 +137,6 @@ function Flow() {
       const node = (event.target as Element).closest(".react-flow__node");
 
       if (node) {
-
         // node.querySelector("input")?.focus({ preventScroll: true });
       } else if (targetIsPane && connectingNodeId.current) {
         const parentNode = nodeInternals.get(connectingNodeId.current);
@@ -123,30 +151,49 @@ function Flow() {
   );
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={(e) => yStore.onNodesChange(e)}
-      onEdgesChange={(e) => yStore.onEdgesChange(e)}
-      onConnectStart={onConnectStart}
-      onConnectEnd={onConnectEnd}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      nodeOrigin={nodeOrigin}
-      defaultEdgeOptions={defaultEdgeOptions}
-      connectionLineStyle={connectionLineStyle}
-      connectionLineType={ConnectionLineType.Straight}
-      fitView
-      elementsSelectable={false}
-      // onNodeClick={()=>{
+    <>
+      <ReactFlow
+        nodes={nodes as any}
+        edges={edges as any}
+        onNodesChange={(e) => yStore.onNodesChange(e)}
+        onEdgesChange={(e) => yStore.onEdgesChange(e)}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        nodeOrigin={nodeOrigin}
+        defaultEdgeOptions={defaultEdgeOptions}
+        connectionLineStyle={connectionLineStyle}
+        connectionLineType={ConnectionLineType.Straight}
+        fitView
+        // elementsSelectable={false}
+        // onNodeClick={()=>{
 
-      // }}
-    >
-      <Controls showInteractive={false} />
-      <Panel position="top-left" className="header">
-        React Flow Mind Map
-      </Panel>
-    </ReactFlow>
+        // }}
+      >
+        <Controls showInteractive={false} />
+        <Panel position="top-left" className="header">
+          React Flow Mind Map
+          <Button onClick={() => yUndoManager.undo()}>undo</Button>
+        </Panel>
+      </ReactFlow>
+      <Drawer
+        title="Basic Drawer"
+        placement="right"
+        onClose={() => setEditorVisible(false)}
+        afterOpenChange={(open) => {
+          if (open) {
+            bindEditor(editorYText);
+          } else {
+            console.log("close");
+            binding.destroy();
+          }
+        }}
+        open={editorVisible}
+      >
+        <div id="quill-editor"></div>
+      </Drawer>
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
 import { NodeAddChange, NodeChange, NodeResetChange } from "reactflow";
 import * as Y from "yjs";
 import { NodeData } from "../MindMapNode";
+import { yStore } from "../y";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function handleParentExpand(res: any[], updateItem: any) {
@@ -55,30 +56,51 @@ export function applyChangesWithSyncedStore(
   elements: Y.Array<any>,
   doc: Y.Doc
 ): void {
+  // console.log("changes", changes);
   // we need this hack to handle the setNodes and setEdges function of the useReactFlow hook for controlled flows
   if (changes.some((c) => c.type === "reset")) {
+    const indexToDeletedList: number[] = [];
+    elements.forEach((element, index) => {
+      if (element.get("type") !== "reset") {
+        indexToDeletedList.push(index);
+      }
+    });
     doc.transact(() => {
-      elements.delete(0, elements.length);
-      elements.push(
-        changes.filter((c) => c.type === "reset").map((c) => c.item)
-      );
+      if (indexToDeletedList.length) {
+        indexToDeletedList
+          .sort(function (a, b) {
+            return a - b;
+          })
+          .forEach((indexToDeleted, index) => {
+            elements.delete(indexToDeleted - index);
+          });
+      }
     });
 
     return;
   }
 
+  //TODO
   const initElements = changes
     .filter((c) => c.type === "add")
     .map((c) => c.item);
 
-  elements.push(initElements);
+  elements.push(
+    initElements.map((updateItem) => {
+      const yMap = new Y.Map(
+        Object.keys(updateItem).map((key) => [key, updateItem[key]])
+        // yMap.set('')
+      );
+    })
+  );
 
   const indexToDeletedList: number[] = [];
   const itemToAddedList: any[] = [];
 
   elements.forEach((item, index) => {
-    const currentChanges = changes.filter((c) => c.id === item.id);
-    const updateItem = { ...item };
+    const itemObject = item.toJSON();
+    const currentChanges = changes.filter((c) => c.id === itemObject.id);
+    const updateItem = { ...itemObject };
     let updateItemDeleted = false;
 
     if (currentChanges.length) {
@@ -86,20 +108,24 @@ export function applyChangesWithSyncedStore(
         if (currentChange) {
           switch (currentChange.type) {
             case "select": {
-              updateItem.selected = currentChange.selected;
+              // updateItem.selected = currentChange.selected;
+              item.set("selected", currentChange.selected);
               break;
             }
             case "position": {
               if (typeof currentChange.position !== "undefined") {
-                updateItem.position = currentChange.position;
+                // updateItem.position = currentChange.position;
+                item.set("position", currentChange.position);
               }
 
               if (typeof currentChange.positionAbsolute !== "undefined") {
-                updateItem.positionAbsolute = currentChange.positionAbsolute;
+                // updateItem.positionAbsolute = currentChange.positionAbsolute;
+                item.set("positionAbsolute", currentChange.positionAbsolute);
               }
 
               if (typeof currentChange.dragging !== "undefined") {
-                updateItem.dragging = currentChange.dragging;
+                // updateItem.dragging = currentChange.dragging;
+                item.set("dragging", currentChange.dragging);
               }
 
               // TODO:处理
@@ -110,19 +136,26 @@ export function applyChangesWithSyncedStore(
             }
             case "dimensions": {
               if (typeof currentChange.dimensions !== "undefined") {
-                updateItem.width = currentChange.dimensions.width;
-                updateItem.height = currentChange.dimensions.height;
+                // updateItem.width = currentChange.dimensions.width;
+                // updateItem.height = currentChange.dimensions.height;
+                item.set("width", currentChange.dimensions.width);
+                item.set("height", currentChange.dimensions.height);
               }
 
               if (typeof currentChange.updateStyle !== "undefined") {
-                updateItem.style = {
+                // updateItem.style = {
+                //   ...(updateItem.style || {}),
+                //   ...currentChange.dimensions,
+                // };
+                item.set("style", {
                   ...(updateItem.style || {}),
                   ...currentChange.dimensions,
-                };
+                });
               }
 
               if (typeof currentChange.resizing === "boolean") {
-                updateItem.resizing = currentChange.resizing;
+                // updateItem.resizing = currentChange.resizing;
+                item.set("resizing", currentChange.resizing);
               }
 
               // if (updateItem.expandParent) {
@@ -138,8 +171,8 @@ export function applyChangesWithSyncedStore(
       if (updateItemDeleted) {
         indexToDeletedList.push(index);
       } else {
-        indexToDeletedList.push(index);
-        itemToAddedList.push(updateItem);
+        // indexToDeletedList.push(index);
+        // itemToAddedList.push(updateItem);
       }
     }
   });
@@ -154,9 +187,16 @@ export function applyChangesWithSyncedStore(
           elements.delete(indexToDeleted - index);
         });
     }
-    if (itemToAddedList.length) {
-      elements.push(itemToAddedList);
-    }
+    // if (itemToAddedList.length) {
+    //   elements.push(
+    //     itemToAddedList.map(
+    //       (updateItem) =>
+    //         new Y.Map(
+    //           Object.keys(updateItem).map((key) => [key, updateItem[key]])
+    //         )
+    //     )
+    //   );
+    // }
   });
 }
 

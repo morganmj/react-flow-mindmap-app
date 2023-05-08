@@ -72,7 +72,7 @@ body,
   background: transparent;
   height: 100%;
   color: #222;
-  pointer-events: none;
+  /* pointer-events: none; */
 }
 
 .input:focus {

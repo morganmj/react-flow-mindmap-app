@@ -2,55 +2,25 @@ import { Button, Drawer } from "antd";
 import { useLayoutEffect, useEffect, useRef, useState } from "react";
 import { Handle, NodeProps, Position } from "reactflow";
 
-import useStore from "../store";
-import { yStore } from "../y";
+import { yStore, wsProvider } from "../y";
 import * as Y from "yjs";
+import { QuillBinding } from "y-quill";
+import Quill from "quill";
+import QuillCursors from "quill-cursors";
 
 import DragIcon from "./DragIcon";
+import { useRFContext } from "../../context";
 
 export type NodeData = {
   label: string;
+  text?: string;
+  textId?: string;
 };
-
-// let quill: any = null;
-// let binding: any = null;
-
-// const bindEditor = (ytext) => {
-//   if (binding) {
-//     // We can reuse the existing editor. But we need to remove all event handlers
-//     // that we registered for collaborative editing before binding to a new editor binding
-//     binding.destroy();
-//   }
-//   if (quill === null) {
-//     // This is the first time a user opens a document.
-//     // The editor has not been initialized yet.
-//     // Create an editor instance.
-//     quill = new Quill(document.querySelector("#editor"), {
-//       modules: {
-//         cursors: true,
-//         toolbar: [
-//           // adding some basic Quill content features
-//           [{ header: [1, 2, false] }],
-//           ["bold", "italic", "underline"],
-//           ["image", "code-block"],
-//         ],
-//         history: {
-//           // Local undo shouldn't undo changes
-//           // from remote users
-//           userOnly: true,
-//         },
-//       },
-//       placeholder: "Start collaborating...",
-//       theme: "snow", // 'bubble' is also great
-//     });
-//   }
-//   // "Bind" the quill editor to a Yjs text type.
-//   // The QuillBinding uses the awareness instance to propagate your cursor location.
-//   binding = new QuillBinding(ytext, quill, awareness);
-// };
 
 function MindMapNode({ id, data }: NodeProps<NodeData>) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const { setEditorVisible, setEditorYText, editorVisible, editorYText } =
+    useRFContext();
 
   useEffect(() => {
     setTimeout(() => {
@@ -58,22 +28,36 @@ function MindMapNode({ id, data }: NodeProps<NodeData>) {
     }, 1);
   }, []);
 
-  // useLayoutEffect(() => {
-  //   if (inputRef.current) {
-  //     inputRef.current.style.width = `${data.label.length * 8}px`;
-  //   }
-  // }, [data.label.length]);
-
-  const [open, setOpen] = useState(false);
+  // const [open, setOpen] = useState(false);
+  const [ytext, setYText] = useState<any>(null);
 
   const showDrawer = () => {
-    console.log("23333");
-    setOpen(true);
+    setEditorYText(ytext);
+    setEditorVisible(true);
   };
 
   const onClose = () => {
-    setOpen(false);
+    setEditorVisible(false);
   };
+
+  useEffect(() => {
+    if (data.textId) {
+      yStore.nodes.forEach((node) => {
+        if (node.get("id") === data.textId) {
+          setYText((node.get("data") as any).get("text"));
+        }
+      });
+    }
+    yStore.nodes.observe((r) => {
+      if (data.textId) {
+        yStore.nodes.forEach((node) => {
+          if (node.get("id") === data.textId) {
+            setYText((node.get("data") as any).get("text"));
+          }
+        });
+      }
+    });
+  }, [data.textId]);
 
   return (
     <>
@@ -81,26 +65,10 @@ function MindMapNode({ id, data }: NodeProps<NodeData>) {
         <div className="dragHandle">
           <DragIcon />
         </div>
-        {/* <input
-          value={data.label}
-          onChange={(evt) => yStore.updateNodeLabel(id, evt.target.value)}
-          className="input"
-          ref={inputRef}
-        />       */}
         <Button type="primary" onClick={showDrawer} className="nodrag">
           Open
-        </Button>{" "}
+        </Button>
       </div>
-      <Drawer
-        title="Basic Drawer"
-        placement="right"
-        onClose={onClose}
-        open={open}
-      >
-        <p>Some contents...</p>
-        <p>Some contents...</p>
-        <p>Some contents...</p>
-      </Drawer>
       <Handle type="target" position={Position.Top} />
       <Handle type="source" position={Position.Top} />
     </>
