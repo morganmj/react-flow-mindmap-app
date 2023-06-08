@@ -51,11 +51,12 @@ let binding: any = null;
 Quill.register("modules/cursors", QuillCursors);
 
 const bindEditor = (ytext: Y.Text) => {
-  if (binding) {
-    // We can reuse the existing editor. But we need to remove all event handlers
-    // that we registered for collaborative editing before binding to a new editor binding
-    binding.destroy();
-  }
+  console.log('ytext',ytext)
+  // if (binding) {
+  //   // We can reuse the existing editor. But we need to remove all event handlers
+  //   // that we registered for collaborative editing before binding to a new editor binding
+  //   binding.destroy();
+  // }
   if (quill === null) {
     // This is the first time a user opens a document.
     // The editor has not been initialized yet.
@@ -90,6 +91,8 @@ function Flow(): JSX.Element {
   const { setEditorVisible, editorVisible, editorYText } = useRFContext();
   const nodes = useYArray(yStore.nodes);
   const edges = useYArray(yStore.edges);
+
+  // console.log('yStore',yStore.doc.store)
 
   const { project } = useReactFlow();
   const connectingNodeId = useRef<string | null>(null);
@@ -180,13 +183,15 @@ function Flow(): JSX.Element {
       <Drawer
         title="Basic Drawer"
         placement="right"
-        onClose={() => setEditorVisible(false)}
+        onClose={() => {
+          binding.destroy();
+          setEditorVisible(false);
+        }}
         afterOpenChange={(open) => {
           if (open) {
             bindEditor(editorYText);
           } else {
-            console.log("close");
-            binding.destroy();
+            // binding.destroy();
           }
         }}
         open={editorVisible}

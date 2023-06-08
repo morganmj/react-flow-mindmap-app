@@ -5,6 +5,7 @@ import { applyChangesWithSyncedStore } from "./utils/change";
 import { nanoid } from "nanoid";
 import { useEffect, useState } from "react";
 import { WebsocketProvider } from "y-websocket";
+import { IndexeddbPersistence } from "./yindex";
 
 export class ReactFlowYStore {
   doc!: Y.Doc;
@@ -147,7 +148,15 @@ export function useYArray<T>(
       // });
 
       // setArr([...arr]);
-      setArr([...yArray.toJSON()]);
+      const arr = yArray.map((item) => {
+        const itemJson = item.toJSON();
+        if (item.get("data") as any) {
+          itemJson.data.yText = (item.get("data") as any).get("text");
+        }
+        return itemJson;
+      });
+
+      setArr([...arr]);
     };
 
     yArray.observeDeep(f);
@@ -161,9 +170,14 @@ export const yUndoManager = new Y.UndoManager([yStore.edges, yStore.nodes]);
 
 export const wsProvider = new WebsocketProvider(
   "wss://demos.yjs.dev/",
-  "sdv888",
+  "klolll",
   yStore.doc
 );
+const idbProvider = new IndexeddbPersistence("klolll", yStore.doc);
+
 
 export const disconnect = () => wsProvider.disconnect();
 export const connect = () => wsProvider.connect();
+
+// idbProvider.once('sync')
+// wsProvider.on('')

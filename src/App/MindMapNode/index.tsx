@@ -15,6 +15,7 @@ export type NodeData = {
   label: string;
   text?: string;
   textId?: string;
+  yText?: any;
 };
 
 function MindMapNode({ id, data }: NodeProps<NodeData>) {
@@ -29,10 +30,11 @@ function MindMapNode({ id, data }: NodeProps<NodeData>) {
   }, []);
 
   // const [open, setOpen] = useState(false);
-  const [ytext, setYText] = useState<any>(null);
+  // const [ytext, setYText] = useState<any>(null);
 
+  // console.log('data.yText',data.yText)
   const showDrawer = () => {
-    setEditorYText(ytext);
+    setEditorYText(data.yText);
     setEditorVisible(true);
   };
 
@@ -40,24 +42,27 @@ function MindMapNode({ id, data }: NodeProps<NodeData>) {
     setEditorVisible(false);
   };
 
-  useEffect(() => {
-    if (data.textId) {
-      yStore.nodes.forEach((node) => {
-        if (node.get("id") === data.textId) {
-          setYText((node.get("data") as any).get("text"));
-        }
-      });
-    }
-    yStore.nodes.observe((r) => {
-      if (data.textId) {
-        yStore.nodes.forEach((node) => {
-          if (node.get("id") === data.textId) {
-            setYText((node.get("data") as any).get("text"));
-          }
-        });
-      }
-    });
-  }, [data.textId]);
+  // useEffect(() => {
+  //   if (data.textId) {
+  //     yStore.nodes.forEach((node) => {
+  //       if (node.get("id") === data.textId) {
+  //         setYText((node.get("data") as any).get("text"));
+  //       }
+  //     });
+  //   }
+  //   const f = () => {
+  //     if (data.textId) {
+  //       yStore.nodes.forEach((node) => {
+  //         if (node.get("id") === data.textId) {
+  //           setYText((node.get("data") as any).get("text"));
+  //         }
+  //       });
+  //     }
+  //   };
+  //   yStore.nodes.observe(f);
+
+  //   return () => yStore.nodes.unobserve(f);
+  // }, [data.textId]);
 
   return (
     <>
